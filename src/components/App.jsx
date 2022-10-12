@@ -1,93 +1,80 @@
 import { Searchbar } from 'components/Searchbar/Searchbar';
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import * as API from 'services/getimages';
 import { ImageGallery } from 'components/ImageGallery/ImageGallery';
 import { Button } from 'components/Button/Button';
 import { Loader } from 'components/Loader/Loader';
 import { Container, ErrorMessage, Message } from 'components/App.styled';
-export class App extends Component {
-  state = {
-    images: null,
-    isLoading: false,
-    error: false,
-    page: 1,
-    query: '',
-    total: 0,
-  };
 
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.page !== this.state.page ||
-      prevState.query !== this.state.query
-    ) {
-      this.loadImages(this.state.query, this.state.page);
-    }
-  }
+export const App = () => {
+  const [images, setImages] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
+  const [total, setTotal] = useState(0);
 
-  onLoadMore = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-      isLoading: true,
-    }));
-  };
-
-  handleSubmitForm = values => {
-    this.setState({ query: values.searchQuery, page: 1 });
-  };
-
-  loadImages = async (query, page) => {
-    try {
-      this.setState({ isLoading: true });
-
-      const receivedImages = await API.getImages(query, page);
-
-      if (page === 1) {
-        this.setState(state => ({
-          total: receivedImages.total,
-          images: [...receivedImages.hits],
-          isLoading: false,
-        }));
-      } else {
-        this.setState(state => ({
-          images: [...state.images, ...receivedImages.hits],
-          isLoading: false,
-        }));
+  useEffect(() => {
+    async function loadImages() {
+      if (query === '') {
+        return;
       }
-    } catch (error) {
-      this.setState({ error: true, isLoading: false });
-      console.log(error.message);
+      try {
+        setIsLoading(true);
+        const receivedImages = await API.getImages(query, page);
+
+        if (page === 1) {
+          setTotal(receivedImages.total);
+          setImages([...receivedImages.hits]);
+        } else {
+          setImages(images => [...images, ...receivedImages.hits]);
+        }
+        setIsLoading(false);
+      } catch (error) {
+        setError(true);
+        setIsLoading(false);
+        console.log(error.message);
+      }
     }
+    loadImages();
+  }, [query, page]);
+
+  const onLoadMore = () => {
+    setPage(page + 1);
+    setIsLoading(true);
   };
 
-  render() {
-    const { error, images, isLoading, total } = this.state;
-    return (
-      <Container>
-        <Searchbar onSubmitProps={this.handleSubmitForm} />
-        {isLoading && <Loader>Loading</Loader>}
-        {error && (
-          <ErrorMessage>An error has occurred, please, try again</ErrorMessage>
-        )}
-        {images && (
-          <>
-            {images.length === 0 && (
-              <ErrorMessage>No pictures on this query! </ErrorMessage>
-            )}
+  const handleSubmitForm = values => {
+    setQuery(values.searchQuery);
+    setPage(1);
+  };
 
-            <ImageGallery items={images} />
+  return (
+    <Container>
+      <Searchbar onSubmitProps={handleSubmitForm} />
+      {isLoading && <Loader>Loading</Loader>}
+      {error && (
+        <ErrorMessage>An error has occurred, please, try again</ErrorMessage>
+      )}
+      {images && (
+        <>
+          {images.length === 0 && (
+            <ErrorMessage>No pictures on this query! </ErrorMessage>
+          )}
 
-            {isLoading && <Loader>Loading</Loader>}
-            {images.length > 0 && images.length !== total && (
-              <Button onLoadMore={this.onLoadMore} />
-            )}
-            {isLoading && <Loader>Loading</Loader>}
+          <ImageGallery items={images} />
 
-            {images.length === total && !!images.length && (
-              <Message>We show you all pictures!</Message>
-            )}
-          </>
-        )}
-      </Container>
-    );
-  }
-}
+          {isLoading && <Loader>Loading</Loader>}
+          {images.length > 0 && images.length !== total && (
+            <Button onLoadMore={onLoadMore} />
+          )}
+          {isLoading && <Loader>Loading</Loader>}
+
+          {images.length === total && !!images.length && (
+            <Message>We show you all pictures!</Message>
+          )}
+        </>
+      )}
+    </Container>
+  );
+};
